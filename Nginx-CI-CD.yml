@@ -8,9 +8,9 @@ on:
 
 env:
   AWS_REGION: "us-east-1"
-  EKS_CLUSTER: "dev-eks-cluster"
+  EKS_CLUSTER: "prod-eks-cluster"
   ECR_REPO: "nginx-secured"
-  K8S_NAMESPACE: "nginx-dev"
+  K8S_NAMESPACE: "nginx-prod"
 
 permissions:
   id-token: write  # Required for AWS OIDC auth
@@ -27,7 +27,7 @@ jobs:
       - name: Configure AWS Credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v2
         with:
-          role-to-assume: ${{ secrets.AWS_IAM_ROLE }}     
+          role-to-assume: ${{ secrets.AWS_IAM_ROLE }}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Login to Amazon ECR
@@ -91,13 +91,13 @@ jobs:
         run: |
           kubectl apply -f k8s/namespace.yaml
           kubectl apply -f k8s/ -n ${{ env.K8S_NAMESPACE }}
-          
-		  # Update image
+
+          # Update image
           kubectl set image deployment/nginx \
             nginx=${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_REPO }}:${{ github.sha }} \
             -n ${{ env.K8S_NAMESPACE }} --record
-			
-		  # Verify rollout
+          
+	  # Verify rollout 
           kubectl rollout status deployment/nginx -n ${{ env.K8S_NAMESPACE }} --timeout=300s
 
       - name: Post-Deployment Check
