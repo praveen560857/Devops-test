@@ -97,7 +97,7 @@ jobs:
             nginx=${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_REPO }}:${{ github.sha }} \
             -n ${{ env.K8S_NAMESPACE }} --record
           
-	  # Verify rollout 
+          # Verify rollout 
           kubectl rollout status deployment/nginx -n ${{ env.K8S_NAMESPACE }} --timeout=300s
 
       - name: Post-Deployment Check
