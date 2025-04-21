@@ -1,6 +1,6 @@
 #!/bin/bash
 
-[ -s input.txt ] && echo "Word frequency:" || { echo "File is empty or missing."; exit 1; }
+[ -s input.txt ] && echo "Word Count:" || { echo "File is empty or missing."; exit 1; }
 
 grep -vE '^#|^$' input.txt | \
 sed 's/[^a-zA-Z ]//g' | \
