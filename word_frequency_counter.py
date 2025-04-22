@@ -36,7 +36,6 @@ class WordFrequencyCounter:
             for word, count in sorted_word_count:
                 print(f"{word:<15} {count} requests")
 
-# Example usage
 if __name__ == '__main__':
     file_path = 'input.txt'  # Path to your text file
     counter = WordFrequencyCounter(file_path)
