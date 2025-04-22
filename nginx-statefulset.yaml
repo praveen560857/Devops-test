@@ -1,61 +1,90 @@
+# Headless service for stable network IDs
 apiVersion: v1
 kind: Service
 metadata:
-  name: nginx
+  name: nginx-headless
   labels:
     app: nginx
+    component: web
 spec:
-  clusterIP: None  # Headless Service for StatefulSet
+  clusterIP: None
+  ports:
+    - name: http
+      port: 80
   selector:
     app: nginx
-  ports:
-    - port: 80
-      name: http
-
+    component: web
 ---
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: nginx
+  labels:
+    app: nginx
+    component: web
 spec:
+  serviceName: "nginx-headless"
+  replicas: 3
   selector:
     matchLabels:
       app: nginx
-  serviceName: "nginx"
-  replicas: 3
+      component: web
   template:
     metadata:
       labels:
         app: nginx
+        component: web
+      annotations:
+        prometheus.io/scrape: "false"
+        maintainer: "praveenkumarprofessional108@gmail.com"
     spec:
-      terminationGracePeriodSeconds: 10
+      securityContext:
+        fsGroup: 101  # nginx user in secure image
       containers:
         - name: nginx
-          image: nginx:1.19-alpine
+          image: nginx:1.19-secure
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 80
               name: http
           volumeMounts:
             - name: nginx-data
-              mountPath: /var/log/nginx
+              mountPath: /usr/share/nginx/html
           resources:
             requests:
               cpu: 250m
-              memory: 100Mi
+              memory: 128Mi
             limits:
               cpu: 500m
-              memory: 200Mi
+              memory: 256Mi
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 15
+            periodSeconds: 30
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/bin/sh", "-c", "sleep 5"]
           securityContext:
-            runAsUser: 1000
-            runAsGroup: 1000
             runAsNonRoot: true
-            readOnlyRootFilesystem: false
+            runAsUser: 101
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
   volumeClaimTemplates:
     - metadata:
         name: nginx-data
       spec:
         accessModes: ["ReadWriteOnce"]
+        storageClassName: "standard"  # Customize for your storage 
         resources:
           requests:
             storage: 1Gi
-        storageClassName: standard  # Adjust based on your cluster requirement
