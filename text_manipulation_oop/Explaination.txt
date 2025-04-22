@@ -1,0 +1,40 @@
+Explanation of the Code:
+Imports:
+
+* import re: This is for regular expressions to clean the text.
+
+* import Counter: We use Counter to count word frequencies efficiently.
+
+count_and_display Function:
+
+* def count_and_display(file_path):: It takes file_path as an argument, which is the path to the input text file.
+
+Reading and Processing the File:
+
+* with open(file_path, 'r') as file:: Opens the file in read mode ('r'), and the file is automatically closed when the block is done.
+
+text = re.sub(r'[^a-zA-Z\s]', '', file.read().lower()):
+
+* file.read().lower(): Reads the entire file and converts it to lowercase to handle case-insensitivity.
+
+* re.sub(r'[^a-zA-Z\s]', '', ...): Removes any character that isn't a letter (A-Z, a-z) or a space. This cleans the text of punctuation and other non-alphabetical characters.
+
+* words = text.split(): Splits the cleaned text into individual words based on spaces.
+
+Counting and Sorting the Words:
+
+* word_count = Counter(words): The Counter counts the frequency of each word in the words list.
+
+* for word, count in sorted(word_count.items(), key=lambda x: (-x[1], x[0])):: This sorts the word_count dictionary first by frequency in descending order (-x[1]), and if two words have the same frequency, it sorts them alphabetically (x[0]).
+
+* print(f"{word:<15} {count} requests"): This prints each word and its count, formatted.
+
+Error Handling:
+
+* except FileNotFoundError:: If the file doesn't exist, it prints an error message.
+
+* except Exception as e:: Any other exceptions are caught and printed with the exception message.
+
+Usage:
+
+* if __name__ == '__main__':: This ensures that the function count_and_display('input.txt') is called when the script is run directly.
