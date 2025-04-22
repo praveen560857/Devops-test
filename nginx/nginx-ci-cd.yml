@@ -8,9 +8,9 @@ on:
 
 env:
   AWS_REGION: "us-east-1"
-  EKS_CLUSTER: "prod-eks-cluster"
+  EKS_CLUSTER: "dev-eks-cluster"
   ECR_REPO: "nginx-secured"
-  K8S_NAMESPACE: "nginx-prod"
+  K8S_NAMESPACE: "nginx-dev"
 
 permissions:
   id-token: write  # Required for AWS OIDC auth
@@ -19,7 +19,7 @@ permissions:
 jobs:
   build-and-scan:
     name: Build & Security Scan
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -40,7 +40,7 @@ jobs:
           context: .
           tags: |
             ${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_REPO }}:${{ github.sha }}
-            ${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_REPO }}:latest
+            ${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_REPO }}:1.19-secure
           push: ${{ github.ref == 'refs/heads/main' }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -64,7 +64,7 @@ jobs:
     name: Deploy to EKS
     needs: build-and-scan
     if: github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     environment: production
     steps:
       - name: Checkout
@@ -80,7 +80,7 @@ jobs:
         run: |
           curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
           sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
-          curl --silent --location "https://github.com/weaveworks/eksctl/releases/latest/download/eksctl_$(uname -s)_amd64.tar.gz" | tar xz -C /tmp
+          curl --silent --location "https://github.com/weaveworks/eksctl/releases/v0.172.0/download/eksctl_$(uname -s)_amd64.tar.gz" | tar xz -C /tmp
           sudo mv /tmp/eksctl /usr/local/bin
 
       - name: Configure EKS Access
