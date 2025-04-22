@@ -1,0 +1,106 @@
+name: Nginx Secure Deployment to AWS EKS
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+env:
+  AWS_REGION: "us-east-1"
+  EKS_CLUSTER: "prod-eks-cluster"
+  ECR_REPO: "nginx-secured"
+  K8S_NAMESPACE: "nginx-prod"
+
+permissions:
+  id-token: write  # Required for AWS OIDC auth
+  contents: read
+
+jobs:
+  build-and-scan:
+    name: Build & Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          role-to-assume: ${{ secrets.AWS_IAM_ROLE }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v1
+
+      - name: Build Docker Image
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          tags: |
+            ${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_REPO }}:${{ github.sha }}
+            ${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_REPO }}:latest
+          push: ${{ github.ref == 'refs/heads/main' }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Trivy Vulnerability Scan (Critical/High)
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_REPO }}:${{ github.sha }}
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
+          exit-code: '1'
+          ignore-unfixed: true
+
+      - name: Upload Scan Results
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+  deploy-to-eks:
+    name: Deploy to EKS
+    needs: build-and-scan
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          role-to-assume: ${{ secrets.AWS_IAM_ROLE }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Install kubectl and eksctl
+        run: |
+          curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+          sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+          curl --silent --location "https://github.com/weaveworks/eksctl/releases/latest/download/eksctl_$(uname -s)_amd64.tar.gz" | tar xz -C /tmp
+          sudo mv /tmp/eksctl /usr/local/bin
+
+      - name: Configure EKS Access
+        run: |
+          aws eks update-kubeconfig --name ${{ env.EKS_CLUSTER }} --region ${{ env.AWS_REGION }}
+
+      - name: Deploy Kubernetes Manifests
+        run: |
+          kubectl apply -f k8s/namespace.yaml
+          kubectl apply -f k8s/ -n ${{ env.K8S_NAMESPACE }}
+
+          # Update image
+          kubectl set image deployment/nginx \
+            nginx=${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_REPO }}:${{ github.sha }} \
+            -n ${{ env.K8S_NAMESPACE }} --record
+          
+          # Verify rollout 
+          kubectl rollout status deployment/nginx -n ${{ env.K8S_NAMESPACE }} --timeout=300s
+
+      - name: Post-Deployment Check
+        run: |
+          kubectl get pods -n ${{ env.K8S_NAMESPACE }}
+          kubectl get svc -n ${{ env.K8S_NAMESPACE }}
