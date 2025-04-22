@@ -1,4 +1,0 @@
-Hello, this   is a     test!
-Some lines   have extra  spaces.
-Others... have PUNCTUATION! And Capital LETTERS.
-# This is a comment
