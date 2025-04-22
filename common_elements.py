@@ -1,4 +1,4 @@
-class CommonElementsFinder:
+class CommonNumbersFinder:
     def __init__(self, arr1, arr2):
         self.arr1 = arr1
         self.arr2 = arr2
@@ -27,6 +27,6 @@ if __name__ == "__main__":
     arr1 = [1, 2, 2, 3, 5, 7, 10]
     arr2 = [2, 2, 5, 6, 7, 8, 10]
 
-    finder = CommonElementsFinder(arr1, arr2)
+    finder = CommonNumbersFinder(arr1, arr2)
     common = finder.find_common()
     print("Common elements:", common)
